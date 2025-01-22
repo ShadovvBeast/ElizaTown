@@ -390,12 +390,11 @@ function App() {
         <Toaster position="top-right" />
 
         {/* Header */}
-        // Replace the header section with:
         <header className="bg-black/30 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <img src="../assets/android-chrome-512x512.png" width={30} alt="ElizaTown"/>
+                <img src="./assets/android-chrome-512x512.png" width={30} alt="ElizaTown"/>
                 <h1 className="text-2xl font-bold text-white">ElizaTown</h1>
               </div>
               <div className="flex items-center space-x-4">

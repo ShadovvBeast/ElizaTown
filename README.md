@@ -1,7 +1,7 @@
 # ElizaTown
 
 <div align="center">
-  <img src="./assets/android-chrome-512x512.png" alt="ElizaTown Logo" width="200"/>
+  <img src="https://eliza.town/assets/android-chrome-512x512.png" alt="ElizaTown Logo" width="200"/>
   <br/>
   <a href="https://discord.gg/RtZGvczt">
     <img src="https://img.shields.io/discord/1331618536262602813?color=7289da&logo=discord&logoColor=white" alt="Discord">

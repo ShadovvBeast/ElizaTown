@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from "@supabase/supabase-js";
-import { Upload, Download, Users, Search, Heart, LogIn, LogOut } from 'lucide-react';
+import { Upload, Download, Search, Heart, LogIn, LogOut } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { Toaster, toast } from 'react-hot-toast';
 import { supabase } from './lib/supabase';
@@ -25,22 +25,191 @@ interface Character {
   is_liked?: boolean;
 }
 
-let isFetchingProfile = false; // Global flag to prevent multiple fetches
+interface UploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+let isFetchingProfile = false;
+
+const UploadModal = ({ isOpen, onClose }: UploadModalProps) => {
+  const [isUploading, setIsUploading] = useState(false);
+  const [characterFile, setCharacterFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [details, setDetails] = useState({
+    name: '',
+    description: ''
+  });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+  }, []);
+
+  const { getRootProps: getCharacterProps, getInputProps: getCharacterInputProps } = useDropzone({
+    accept: { 'application/json': ['.json'] },
+    maxSize: 5242880,
+    multiple: false,
+    onDrop: async (files) => {
+      const file = files[0];
+      if (!file) return;
+
+      try {
+        const content = await file.text();
+        const json = JSON.parse(content);
+        setDetails(prev => ({ ...prev, name: json.name || '' }));
+        setCharacterFile(file);
+      } catch (error) {
+        toast.error('Invalid JSON file');
+      }
+    }
+  });
+
+  const { getRootProps: getImageProps, getInputProps: getImageInputProps } = useDropzone({
+    accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] },
+    maxSize: 5242880,
+    multiple: false,
+    onDrop: (files) => {
+      const file = files[0];
+      if (!file) return;
+      setImageFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  });
+
+  const handleUpload = async () => {
+    if (!characterFile || !imageFile || !session) {
+      toast.error('Please provide all required files');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Upload image
+      const imageExt = imageFile.name.split('.').pop();
+      const imagePath = `${session.user.id}/${Date.now()}.${imageExt}`;
+      const { error: imageError } = await supabase.storage
+          .from('character-images')
+          .upload(imagePath, imageFile);
+      if (imageError) throw imageError;
+
+      const { data: { publicUrl: imageUrl } } = supabase.storage
+          .from('character-images')
+          .getPublicUrl(imagePath);
+
+      // Upload character file
+      const fileExt = characterFile.name.split('.').pop();
+      const filePath = `${session.user.id}/${Date.now()}.${fileExt}`;
+      const { error: fileError } = await supabase.storage
+          .from('character-files')
+          .upload(filePath, characterFile);
+      if (fileError) throw fileError;
+
+      const { data: { publicUrl: fileUrl } } = supabase.storage
+          .from('character-files')
+          .getPublicUrl(filePath);
+
+      // Create character record
+      const { error: insertError } = await supabase
+          .from('characters')
+          .insert({
+            name: details.name,
+            description: details.description,
+            file_url: fileUrl,
+            image_url: imageUrl,
+            author_id: session.user.id,
+          });
+
+      if (insertError) throw insertError;
+
+      toast.success('Character uploaded successfully!');
+      onClose();
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload character');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-gray-900 p-6 rounded-lg w-full max-w-md">
+          <h2 className="text-xl font-bold text-white mb-4">Upload Character</h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Character File</label>
+              <div {...getCharacterProps()} className="border-2 border-dashed border-purple-500 rounded-lg p-4 text-center cursor-pointer">
+                <input {...getCharacterInputProps()} />
+                <p className="text-white">{characterFile ? characterFile.name : 'Drop character file here'}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Character Image</label>
+              <div {...getImageProps()} className="border-2 border-dashed border-purple-500 rounded-lg p-4 text-center cursor-pointer">
+                <input {...getImageInputProps()} />
+                {previewUrl ? (
+                    <img src={previewUrl} alt="Preview" className="mx-auto max-h-32 object-contain" />
+                ) : (
+                    <p className="text-white">Drop character image here</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Name</label>
+              <input
+                  type="text"
+                  value={details.name}
+                  onChange={(e) => setDetails(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Description</label>
+              <textarea
+                  value={details.description}
+                  onChange={(e) => setDetails(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white"
+                  rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end space-x-3">
+            <button
+                onClick={onClose}
+                className="px-4 py-2 text-white hover:bg-white/10 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+                onClick={handleUpload}
+                disabled={isUploading || !characterFile || !imageFile}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition disabled:opacity-50"
+            >
+              {isUploading ? 'Uploading...' : 'Upload'}
+            </button>
+          </div>
+        </div>
+      </div>
+  );
+};
 
 function App() {
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [characterDetails, setCharacterDetails] = useState({
-    name: '',
-    description: '',
-    image: null,
-  });
-  const [uploadedFile, setUploadedFile] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -67,11 +236,10 @@ function App() {
   }, [searchQuery, session]);
 
   const fetchProfile = async (user: User) => {
-    if (isFetchingProfile) return; // Prevent multiple fetch calls
+    if (isFetchingProfile) return;
     isFetchingProfile = true;
 
     try {
-      // Try to fetch the profile
       let { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
@@ -79,21 +247,19 @@ function App() {
           .single();
 
       if (error && error.code === 'PGRST116') {
-        console.warn('Profile not found. Creating a new profile...');
         const defaultProfile = {
           id: user.id,
-          username: user?.user_metadata?.preferred_username || user?.user_metadata?.user_name || `user-${user.id}`, // Default username
-          avatar_url: null,          // Default avatar
+          username: user?.user_metadata?.preferred_username || user?.user_metadata?.user_name || `user-${user.id}`,
+          avatar_url: null,
         };
 
-        // Use upsert to avoid conflicts
         const { error: upsertError } = await supabase
             .from('profiles')
             .upsert(defaultProfile);
 
         if (upsertError) {
           console.error('Error creating profile:', upsertError);
-          toast.error('Failed to create profile. Please contact support.');
+          toast.error('Failed to create profile');
           return;
         }
 
@@ -101,16 +267,16 @@ function App() {
         toast.success('Profile created successfully!');
       } else if (error) {
         console.error('Error fetching profile:', error);
-        toast.error('Error fetching profile. Please try again.');
+        toast.error('Error fetching profile');
         return;
       }
 
       setProfile(profile);
     } catch (err) {
-      console.error('Unexpected error in fetchProfile:', err);
-      toast.error('An unexpected error occurred. Please try again later.');
+      console.error('Unexpected error:', err);
+      toast.error('An unexpected error occurred');
     } finally {
-      isFetchingProfile = false; // Reset the flag
+      isFetchingProfile = false;
     }
   };
 
@@ -135,7 +301,6 @@ function App() {
       return;
     }
 
-    // If user is logged in, fetch their likes separately
     let userLikes: Record<string, boolean> = {};
     if (session?.user) {
       const { data: likesData } = await supabase
@@ -220,83 +385,17 @@ function App() {
     }
   };
 
-  const { getRootProps, getInputProps } = useDropzone({
-    accept: {
-      'application/json': ['.json'],
-    },
-    maxSize: 5242880, // 5MB
-    multiple: false,
-    disabled: isUploading,
-    onDrop: async (acceptedFiles) => {
-      if (!session) {
-        toast.error('Please sign in to upload characters');
-        return;
-      }
-
-      const file = acceptedFiles[0];
-      if (!file) return;
-
-      setIsUploading(true);
-      try {
-        // Parse the JSON file to extract the "name" field
-        const fileContent = await file.text(); // Read file as text
-        const jsonData = JSON.parse(fileContent); // Parse text as JSON
-
-        // Validate the parsed JSON to ensure "name" exists
-        if (!jsonData.name) {
-          throw new Error('The uploaded JSON file must contain a "name" field.');
-        }
-
-        const characterName = jsonData.name; // Use the "name" field for the character name
-
-        // Upload character file
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${session.user.id}/${Date.now()}.${fileExt}`;
-
-        const { error: uploadError, data: fileData } = await supabase.storage
-            .from('character-files')
-            .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl: fileUrl } } = supabase.storage
-            .from('character-files')
-            .getPublicUrl(filePath);
-
-        // Create character record
-        const { error: insertError } = await supabase
-            .from('characters')
-            .insert({
-              name: characterName, // Use the extracted "name" field
-              file_url: fileUrl,
-              image_url: 'https://images.unsplash.com/photo-1635236542159-0910adf9c4c4?auto=format&fit=crop&q=80&w=400', // Default image
-              author_id: session.user.id,
-            });
-
-        if (insertError) throw insertError;
-
-        toast.success('Character uploaded successfully!');
-        setShowUploadModal(false);
-        fetchCharacters();
-      } catch (error) {
-        console.error('Upload error:', error);
-        toast.error(error.message || 'Failed to upload character');
-      } finally {
-        setIsUploading(false);
-      }
-    },
-  });
-
   return (
       <div className="min-h-screen bg-gradient-to-b from-purple-900 via-purple-800 to-indigo-900">
         <Toaster position="top-right" />
 
         {/* Header */}
+        // Replace the header section with:
         <header className="bg-black/30 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <img src="../assets/android-chrome-512x512.png"width={30} alt="ElizaTown"/>
+                <img src="../assets/android-chrome-512x512.png" width={30} alt="ElizaTown"/>
                 <h1 className="text-2xl font-bold text-white">ElizaTown</h1>
               </div>
               <div className="flex items-center space-x-4">
@@ -359,7 +458,10 @@ function App() {
                   </div>
                   <div className="p-4">
                     <h3 className="text-xl font-semibold text-white">{character.name}</h3>
-                    <p className="text-purple-300">by {character.author?.username}</p>
+                    {character.description && (
+                        <p className="text-white/70 mt-1">{character.description}</p>
+                    )}
+                    <p className="text-purple-300 mt-2">by {character.author?.username}</p>
                     <div className="mt-4 flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <button
@@ -391,37 +493,16 @@ function App() {
 
         {/* Upload Modal */}
         {showUploadModal && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-gray-900 p-6 rounded-lg w-full max-w-md">
-                <h2 className="text-xl font-bold text-white mb-4">Upload Character</h2>
-                <div
-                    {...getRootProps()}
-                    className={`border-2 border-dashed border-purple-500 rounded-lg p-8 text-center ${
-                        isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    }`}
-                >
-                  <input {...getInputProps()} />
-                  {isUploading ? (
-                      <p className="text-white">Uploading...</p>
-                  ) : (
-                      <p className="text-white">
-                        Drag and drop a character file here, or click to select
-                      </p>
-                  )}
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <button
-                      onClick={() => setShowUploadModal(false)}
-                      className="px-4 py-2 text-white hover:bg-white/10 rounded-lg transition"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
+            <UploadModal
+                isOpen={showUploadModal}
+                onClose={() => {
+                  setShowUploadModal(false);
+                  fetchCharacters();
+                }}
+            />
         )}
       </div>
-  );
+);
 }
 
 export default App;

@@ -1,50 +1,65 @@
-# React + TypeScript + Vite
+# ElizaTown
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+<div align="center">
+  <img src="./assets/android-chrome-512x512.png" alt="ElizaTown Logo" width="200"/>
+  <br/>
+  <a href="https://discord.gg/RtZGvczt">
+    <img src="https://img.shields.io/discord/1331618536262602813?color=7289da&logo=discord&logoColor=white" alt="Discord">
+  </a>
+</div>
 
-Currently, two official plugins are available:
+An open-source platform for sharing and discovering AI character files. Think of it as a community hub where creators can upload their character files, share them with others, and discover new characters created by the community.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## Expanding the ESLint configuration
+- 🔐 GitHub authentication
+- 📤 Upload character files with images
+- ❤️ Like and download tracking
+- 🔍 Search characters by name
+- 👥 User profiles
+- 📱 Responsive design
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Tech Stack
 
-- Configure the top-level `parserOptions` property like this:
+- React + TypeScript
+- Supabase (Auth, DB, Storage)
+- TailwindCSS
+- Lucide Icons
+- React Dropzone
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/ShadovvBeast/ElizaTown.git
+cd elizatown
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
-
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
+2. Install dependencies:
+```bash
+bun install
 ```
+
+3. Create a `.env` file with your Supabase credentials:
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+4. Run the development server:
+```bash
+bun dev
+```
+
+## Contributing
+
+We welcome contributions! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a Pull Request
+
+## License
+
+MIT Licensed - see [LICENSE](LICENSE) file

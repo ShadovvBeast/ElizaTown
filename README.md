@@ -10,6 +10,8 @@
 
 An open-source platform for sharing and discovering AI character files. Think of it as a community hub where creators can upload their character files, share them with others, and discover new characters created by the community.
 
+🌐 Explore the platform: **[https://eliza.town/](https://eliza.town/)**
+
 ## Features
 
 - 🔐 GitHub authentication
